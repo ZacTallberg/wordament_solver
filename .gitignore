@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+solution_words.txt
+wordament_found/

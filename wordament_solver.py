@@ -6,25 +6,23 @@ def load_digram(digram_txt):
     Returns digram loaded from the file name `"digram_txt"`
     """
     digram = []
-    digram_file = open(digram_txt, 'r')
-    for line in digram_file:
-        row = line.strip().lower()
-        digram.append(row.split(' '))
+    with open(digram_txt, 'r') as digram_file:
+        for line in digram_file:
+            row = line.strip().lower()
+            if row:
+                digram.append(row.split(' '))
     return digram
 
-def word_freq(word):
-    """
-    Returns frequency of all alphabets in `word`
-    """
-    # print(word)
+def get_char_freq(text):
     freq = [0]*26
-    for ch in word:
-        freq[ord(ch)-ord('a')]+=1
+    for ch in text:
+        if 'a' <= ch <= 'z':
+            freq[ord(ch)-ord('a')] += 1
     return freq
 
 def word_possible(word_freq, digram_freq):
     for w_f, d_f in zip(word_freq, digram_freq):
-        if w_f>d_f:
+        if w_f > d_f:
             return False
     return True
 
@@ -33,76 +31,95 @@ def get_word_list(full_word_list_txt, digram):
     Returns a list of all words that can possibly be created 
     on the basis of the frequency count of the `digram`
     """
-    #calculate digram frequency
-    digram_str = []
+    # flatten digram to a single string to count frequencies
+    digram_chars = []
     for row in digram:
-        digram_str.extend(row)
-    digram_str = ''.join(digram_str)
+        for cell in row:
+            digram_chars.append(cell)
+    digram_str = ''.join(digram_chars)
 
-    all_digram_str = []
+    digram_freq = get_char_freq(digram_str)
 
-    if '/' in digram_str:
-        index = digram_str.index('/')
-        first_digram_str = digram_str[:index] + digram_str[index+2:]
-        second_digram_str = digram_str[:index-1] + digram_str[index+1:]
-        print(first_digram_str, second_digram_str)
-        all_digram_str.append(first_digram_str)
-        all_digram_str.append(second_digram_str)
-    else:
-        all_digram_str.append(digram_str)
-
-    for digram_str in all_digram_str:
-        print(digram_str)
-        digram_freq = word_freq(digram_str)
-        #load word list
-        word_list_file = open(full_word_list_txt, 'r')
-        word_list = []
-        for line in word_list_file:
-            # try:
-                word = line.strip()
-                if word_possible(word_freq(word), digram_freq):
+    word_list = []
+    try:
+        with open(full_word_list_txt, 'r') as word_list_file:
+            for line in word_list_file:
+                word = line.strip().lower()
+                if not word:
+                    continue
+                if word_possible(get_char_freq(word), digram_freq):
                     word_list.append(word)
-            # except:
-            #     continue
+    except FileNotFoundError:
+        print(f"Warning: {full_word_list_txt} not found.")
+        return []
+
     return word_list
 
-def dfs_recursive(row, col, digram, combination, vis, combination_set, trie):
-    for i,j in itertools.product([-1, 0, 1], repeat=2):
-            next_row = row + i
-            next_col = col + j
-            # out of range
-            if next_row not in range(len(digram)) or next_col not in range(len(digram[0])):
+def dfs(row, col, node, path, visited, solutions, digram, rows, cols):
+    # Check if current path is a valid word
+    if node.word_finished:
+        solutions.add(path)
+
+    visited[row][col] = True
+
+    # Iterate over all 8 neighbors
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            if dr == 0 and dc == 0:
                 continue
-            # if already visited
-            if vis[next_row][next_col]:
-                continue
-            # if word with the combination as the prefix does not exist
-            if not trie.find_prefix(combination)[0]:
-                continue
-            #if the combination is the valid word
-            if trie.find_prefix(combination)[2]:
-                combination_set.add(combination)
-            #mark as visited and continue the search
-            vis[next_row][next_col] = True
-            combination += digram[next_row][next_col]
-            dfs_recursive(next_row, next_col, digram, combination, vis, combination_set, trie)
-            #unmark
-            combination = combination[:-1]
-            vis[next_row][next_col] = False
+
+            nr, nc = row + dr, col + dc
+
+            # Check bounds and if visited
+            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr][nc]:
+                char_seq = digram[nr][nc]
+
+                # Check if this move is valid in the Trie
+                next_node = node
+                valid_move = True
+                for char in char_seq:
+                    if char in next_node.children:
+                        next_node = next_node.children[char]
+                    else:
+                        valid_move = False
+                        break
+
+                if valid_move:
+                    dfs(nr, nc, next_node, path + char_seq, visited, solutions, digram, rows, cols)
+
+    visited[row][col] = False
 
 def begin_dfs(digram, trie):
     """
     Returns a set of all words that can be created using the `digram`, 
     using `trie` as the dictionary of all plausible words
     """
-    vis = [[False]*4 for i in range(4)]
-    combination_set = set()
-    for i,j in itertools.product(range(4), repeat=2):
-            combination = ""+digram[i][j]
-            vis[i][j] = 1
-            dfs_recursive(i, j, digram, combination, vis, combination_set, trie)
-            vis[i][j] = 0
-    return combination_set
+    solutions = set()
+    if not digram:
+        return solutions
+
+    rows = len(digram)
+    cols = len(digram[0])
+    visited = [[False for _ in range(cols)] for _ in range(rows)]
+
+    for r in range(rows):
+        for c in range(cols):
+            char_seq = digram[r][c]
+
+            # Navigate trie for the starting cell
+            node = trie.root
+            valid_start = True
+            for char in char_seq:
+                if char in node.children:
+                    node = node.children[char]
+                else:
+                    valid_start = False
+                    break
+
+            if valid_start:
+                dfs(r, c, node, char_seq, visited, solutions, digram, rows, cols)
+
+    return solutions
 
 def run_program():
     digram_file_name = "array.txt"
@@ -110,11 +127,21 @@ def run_program():
 
     trie = Trie()
     digram = load_digram(digram_file_name)
+    print(f"Digram loaded: {digram}")
+
     word_list = get_word_list(full_word_list, digram)
+    print(f"Words filtered: {len(word_list)}")
+
     trie.add_word_list(word_list)
+
     solution_list = list(begin_dfs(digram, trie))
     solution_list = sorted(solution_list, key=len, reverse=True)
-    file = open('solution_words.txt', 'w')
-    for word in solution_list:
-        file.write(word+"\n")
-    file.close()
+
+    print(f"Found {len(solution_list)} words.")
+
+    with open('solution_words.txt', 'w') as file:
+        for word in solution_list:
+            file.write(word+"\n")
+
+if __name__ == "__main__":
+    run_program()
