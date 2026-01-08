@@ -135,7 +135,8 @@ def run_program():
     trie.add_word_list(word_list)
 
     solution_list = list(begin_dfs(digram, trie))
-    solution_list = sorted(solution_list, key=len, reverse=True)
+    # Sort by length ascending (shortest first) to imitate a natural progression
+    solution_list = sorted(solution_list, key=len)
 
     print(f"Found {len(solution_list)} words.")
 

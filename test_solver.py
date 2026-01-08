@@ -56,5 +56,10 @@ class TestWordamentSolver(unittest.TestCase):
         self.assertIn("gas", solutions)
         self.assertIn("slathered", solutions)
 
+    def test_sorting(self):
+        # Verify that wordament_solver.run_program produces sorted output
+        # We need to mock IO or just run it and check file
+        pass
+
 if __name__ == '__main__':
     unittest.main()

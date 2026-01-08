@@ -1,11 +1,25 @@
 import time
 import asyncio
 import pyautogui
+import random
 import wordament_solver
 import read_text
 
 # Set PyAutoGUI pause to 0 to avoid blocking delays between actions
 pyautogui.PAUSE = 0.0
+
+async def type_human_like(word):
+    """
+    Types the word with random small delays between characters
+    to simulate superhuman but natural input.
+    """
+    for char in word:
+        pyautogui.write(char)
+        # Random delay between keystrokes: 0.01 to 0.04 seconds
+        # This corresponds to roughly 1500-6000 CPM, which is superhuman
+        # but the variance makes it look less like a buffer dump.
+        delay = random.uniform(0.01, 0.04)
+        await asyncio.sleep(delay)
 
 async def main():
     start = time.time()
@@ -30,14 +44,14 @@ async def main():
                 if time.time() - start >= 90:
                     break
 
-                # Type the word and press Enter
-                pyautogui.write(word)
+                # Type the word with human-like variance and press Enter
+                await type_human_like(word)
                 pyautogui.press('enter')
 
                 print(word)
 
-                # Yield control to the event loop to ensure the script remains responsive
-                # and doesn't block itself
+                # Yield control is partially handled by type_human_like's asyncio.sleep
+                # but we keep this for safety and inter-word timing
                 await asyncio.sleep(0)
 
     except Exception as e:
@@ -53,18 +67,6 @@ def quitPendingTasks():
             task for task in asyncio.all_tasks() if not task.done()
         ]
         if pending_tasks:
-            # We are already in a loop context?
-            # If called from KeyboardInterrupt (outside loop), we can run_until_complete.
-            # If called from inside main (exception), loop is running.
-            # But quitPendingTasks in original code used loop.run_until_complete.
-            # This implies it's intended to be called from outside the loop or when loop is stopping?
-            # Original code: tasks = loop.run_until_complete(asyncio.gather(*pending_tasks))
-            # If called from inside main, this would fail (loop already running).
-            # The original code called quitPendingTasks inside `except Exception` in `main`.
-            # This would raise "RuntimeError: This event loop is already running".
-            # So the original code was buggy in that regard.
-
-            # I will fix this by checking if loop is running.
             if loop.is_running():
                 for task in pending_tasks:
                     task.cancel()
