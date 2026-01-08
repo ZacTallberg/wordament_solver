@@ -1,5 +1,6 @@
 from Trie import Trie
 import itertools
+import random
 
 def load_digram(digram_txt):
     """
@@ -121,6 +122,80 @@ def begin_dfs(digram, trie):
 
     return solutions
 
+def sort_human_like(solutions):
+    """
+    Sorts the solution list to mimic human intuition:
+    - Starts with short words.
+    - Follows "trains of thought" (extensions, shared prefixes).
+    - Switches topics when no obvious connection is found.
+    """
+    solutions = list(solutions)
+    if not solutions:
+        return []
+
+    # Start with shortest words as they are easiest to spot
+    solutions.sort(key=len)
+
+    result = []
+    pool = set(solutions)
+
+    # Pick the first seed (shortest word)
+    if not pool:
+        return []
+
+    current = solutions[0]
+    result.append(current)
+    pool.remove(current)
+
+    while pool:
+        best_candidate = None
+        best_score = -float('inf')
+
+        # We sample the pool if it's very large, but for standard games (<1000 words), this is fine.
+        candidates = list(pool)
+
+        for cand in candidates:
+            score = 0
+
+            # 1. Extension / Substring (Strongest connection)
+            if cand.startswith(current):
+                score += 100
+                # Penalty for length diff (prefer "runs" over "runnings" next)
+                score -= (len(cand) - len(current)) * 2
+            elif current.startswith(cand):
+                score += 80
+                score -= (len(current) - len(cand)) * 2
+
+            # 2. Shared Prefix (The "cluster" effect)
+            elif len(cand) >= 3 and len(current) >= 3 and cand[:3] == current[:3]:
+                score += 50
+                score -= abs(len(cand) - len(current))
+            elif len(cand) >= 2 and len(current) >= 2 and cand[:2] == current[:2]:
+                score += 20
+                score -= abs(len(cand) - len(current))
+
+            # 3. Length Similarity (weakest)
+            else:
+                score -= abs(len(cand) - len(current))
+
+            # Add noise for "intuition"
+            score += random.uniform(0, 5)
+
+            if score > best_score:
+                best_score = score
+                best_candidate = cand
+
+        # Threshold to switch topic
+        if best_score < 15:
+            # No strong relation found. Pick a new "easy" word (shortest).
+            best_candidate = min(pool, key=len)
+
+        current = best_candidate
+        result.append(current)
+        pool.remove(current)
+
+    return result
+
 def run_program():
     digram_file_name = "array.txt"
     full_word_list = "all_words.txt"
@@ -135,8 +210,9 @@ def run_program():
     trie.add_word_list(word_list)
 
     solution_list = list(begin_dfs(digram, trie))
-    # Sort by length ascending (shortest first) to imitate a natural progression
-    solution_list = sorted(solution_list, key=len)
+
+    # Sort by human-like intuition
+    solution_list = sort_human_like(solution_list)
 
     print(f"Found {len(solution_list)} words.")
 
