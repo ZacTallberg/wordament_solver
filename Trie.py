@@ -1,9 +1,9 @@
 class TrieNode:
     def __init__(self, char: str):
         self.char = char
-        self.children = []
+        self.children = {}
         self.word_finished = False
-        #how many words exist with this prefix
+        # how many words exist with this prefix
         self.counter = 1
 
     def __str__(self):
@@ -16,7 +16,6 @@ class Trie:
     `add_word` : to add a word to the words
     `add_word_list` : to add a list of words
     `find_prefix` : to look up for a word
-        
     """
     def __init__(self):
         self.root = TrieNode('')
@@ -26,26 +25,17 @@ class Trie:
         Add a word in the `Trie`, starting from `Trie.root`
         """
         node = self.root
-        #start adding
         for char in word:
-            found_in_child = False
-            # search for the character in the children of the present node
-            for child in node.children:
-                # if trienode for the next character exists
-                if child.char == char:
-                    # increment counter
-                    child.counter+=1
-                    # go to the child node
-                    node = child
-                    found_in_child = True
-                    break
-            # else create a new trie node
-            if not found_in_child:
+            if char in node.children:
+                child = node.children[char]
+                child.counter += 1
+                node = child
+            else:
                 new_node = TrieNode(char)
-                node.children.append(new_node)
+                node.children[char] = new_node
                 node = new_node
 
-        #adding done, now mark the node as word end
+        # adding done, now mark the node as word end
         node.word_finished = True
 
     def add_word_list(self, word_list):
@@ -53,21 +43,15 @@ class Trie:
             self.add_word(word)
 
     def find_prefix(self, prefix: str):
+        """
+        Check if the prefix exists in the trie.
+        Returns (exists, counter, word_finished)
+        """
         node = self.root
-        # if the root has no children
-        if not self.root.children:
-            return False, 0, False
         for char in prefix:
-            char_not_found = True
-            # Try all the children of the present node
-            for child in node.children:
-                if child.char == char:
-                    # We found the char existing in the child.
-                    char_not_found = False
-                    # Assign node as the child containing the char and break
-                    node = child
-                    break
-            if char_not_found:
+            if char in node.children:
+                node = node.children[char]
+            else:
                 return False, 0, False
-        # we found the prefix
+
         return True, node.counter, node.word_finished
